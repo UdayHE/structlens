@@ -1,0 +1,26 @@
+# test log
+open ../../examples/order.json
+open ../../examples/order.json
+open ../../examples/order.json
+getenv TMPDIR
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T/TestGenerateSQLFromFileUnsupportedFormat2238275170/001/order.yaml
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T/TestGenerateSQLFromFileUnsupportedFormat2238275170/001/order.yaml
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T
+getenv TMPDIR
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T/TestGenerateSQLFromFileEmptyInput262804455/001/empty.json
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T/TestGenerateSQLFromFileEmptyInput262804455/001/empty.json
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T
+getenv TMPDIR
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T/TestGenerateSQLFromFileInvalidJSON1815894349/001/broken.json
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T/TestGenerateSQLFromFileInvalidJSON1815894349/001/broken.json
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T
+open ../../examples/order.json
+open ../../examples/order.json
+getenv TMPDIR
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T/TestGenerateSQLFromFileInvalidXML1603554397/001/broken.xml
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T/TestGenerateSQLFromFileInvalidXML1603554397/001/broken.xml
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T
+getenv TMPDIR
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T/TestGenerateSQLFromFileDeepXML3004095236/001/deep.xml
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T/TestGenerateSQLFromFileDeepXML3004095236/001/deep.xml
+open /var/folders/c1/j2x__xf146gd_pjtr04ptw680000gp/T

@@ -1,0 +1,12 @@
+{
+  "order": {
+    "id": 1,
+    "customer": {
+      "name": "John"
+    },
+    "items": [
+      { "product": "A", "qty": 2 },
+      { "product": "B", "qty": 1 }
+    ]
+  }
+}

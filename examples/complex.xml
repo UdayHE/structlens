@@ -1,0 +1,10 @@
+<catalog>
+  <book id="bk-1001">
+    <title>StructLens</title>
+    <author>Uday</author>
+  </book>
+  <book id="bk-1002">
+    <title>Schema Patterns</title>
+    <author>OpenAI</author>
+  </book>
+</catalog>
