@@ -34,3 +34,4 @@ go.work.sum
 # Local project instructions/tasks (do not commit)
 AGENTS.md
 tasks/
+.gocache/
