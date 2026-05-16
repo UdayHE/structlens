@@ -2,31 +2,73 @@
 
 Convert structured data to a relational schema instantly.
 
-StructLens is a Go CLI that reads JSON or XML, infers a schema, maps nested data into relational tables, and generates PostgreSQL-compatible SQL. It can also print the inferred structure as a readable tree so you can inspect the shape before generating tables.
+StructLens is a desktop developer tool (macOS) that reads JSON or XML, infers a schema, and maps nested data into relational tables with PostgreSQL-compatible SQL. It ships as a native app built with Tauri + React, backed by a Go engine.
 
 ## What It Does
 
-- Parses JSON and XML with streaming parsers
+- Opens JSON and XML files via a native file picker
+- Streams-parses input — handles files up to 100MB
 - Infers field types, optional fields, and arrays
 - Maps nested objects and repeated structures into relational tables
-- Generates deterministic PostgreSQL-style `CREATE TABLE` statements
-- Prints a tree view of the inferred schema for quick inspection
+- Generates deterministic PostgreSQL-style `CREATE TABLE` statements with foreign keys
+- Displays a live schema tree you can explore and click
+- Shows a split-pane workspace with the tree on the left and SQL on the right
+- Lists sample records grouped by inferred table type
 
-## Quick Start
+## Desktop App
 
-Build the CLI:
+### Requirements
+
+- macOS (arm64 or x86_64)
+- [Rust + Cargo](https://rustup.rs/)
+- [Node.js](https://nodejs.org/) (v18+)
+- Go 1.24+
+
+### Run in development
+
+```bash
+npm install
+npm run tauri dev
+```
+
+This builds the Go sidecar binary, starts the Vite dev server, and launches the Tauri window.
+
+### Build for production
+
+```bash
+npm run tauri build
+```
+
+The `.app` bundle is written to `src-tauri/target/release/bundle/macos/`.
+
+### How the sidecar works
+
+The Go engine is compiled to a platform-specific binary under `src-tauri/binaries/` and invoked by Tauri via its sidecar mechanism. The build script handles this automatically:
+
+```bash
+./scripts/build-sidecar.sh          # auto-detects host target triple
+./scripts/build-sidecar.sh aarch64-apple-darwin
+./scripts/build-sidecar.sh x86_64-apple-darwin
+```
+
+## CLI
+
+The original CLI is still available for scripting and CI use.
+
+Build:
 
 ```bash
 go build -o structlens ./cmd/structlens
 ```
 
-Generate SQL from JSON:
+Generate SQL from a file:
 
 ```bash
 ./structlens examples/nested.json
+./structlens examples/complex.xml
 ```
 
-Inspect the inferred structure instead of SQL:
+Inspect the inferred schema as a tree:
 
 ```bash
 ./structlens --view tree examples/nested.json
@@ -38,17 +80,25 @@ Show version:
 ./structlens --version
 ```
 
+### CLI Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--view` | `sql` | Output mode: `sql` or `tree` |
+| `--flatten-threshold` | `2` | Max fields in a nested object before it becomes its own table |
+| `--array-item-name` | `item` | Name used for unnamed array elements |
+| `--version` | — | Print version and exit |
+| `--help` | — | Show usage |
+
 ## Example
 
-Input:
+Input `examples/nested.json`:
 
 ```json
 {
   "order": {
     "id": 1,
-    "customer": {
-      "name": "John"
-    },
+    "customer": { "name": "John" },
     "items": [
       { "product": "A", "qty": 2 },
       { "product": "B", "qty": 1 }
@@ -76,7 +126,7 @@ CREATE TABLE items (
 
 Tree output:
 
-```text
+```
 Schema Summary:
 - Total fields: 7
 - Arrays: 1
@@ -91,124 +141,87 @@ Root: order (3 fields)
     └── qty (int)
 ```
 
-## Installation
-
-### From source
-
-```bash
-go build -o structlens ./cmd/structlens
-```
-
-### Run without building
-
-```bash
-go run ./cmd/structlens examples/simple.json
-```
-
-## Usage
-
-```bash
-structlens [flags] <input.json|input.xml>
-```
-
-### Flags
-
-- `--view sql|tree`
-  Default: `sql`
-- `--flatten-threshold <n>`
-  Default: `2`
-- `--array-item-name <name>`
-  Default: `item`
-- `--version`
-- `--help`
-
-### Common commands
-
-```bash
-structlens examples/simple.json
-structlens --flatten-threshold 1 examples/nested.json
-structlens --view tree examples/nested.json
-structlens --array-item-name entry examples/complex.xml
-```
-
 ## How Mapping Works
 
 - Root object becomes the main table
-- Arrays become child tables
-- Nested objects may be flattened into the parent table
-- Every table gets an `id BIGINT PRIMARY KEY`
-- Foreign keys are created for child tables
+- Arrays become child tables with a foreign key back to the parent
+- Nested objects with few fields are flattened into the parent table (configurable via `--flatten-threshold`)
+- Every table gets an auto-generated `id BIGINT PRIMARY KEY`
 - Output column and table names are converted to `snake_case`
-
-## Supported Inputs
-
-- JSON
-- XML
-
-Unsupported today:
-
-- YAML
-- CSV
-- Schema diff / migrations
-
-## Example Files
-
-Bundled examples:
-
-- [examples/simple.json](/Users/udayhegde/GoProjects/structlens/examples/simple.json)
-- [examples/nested.json](/Users/udayhegde/GoProjects/structlens/examples/nested.json)
-- [examples/complex.xml](/Users/udayhegde/GoProjects/structlens/examples/complex.xml)
-
-Expected SQL snapshots:
-
-- [examples/simple.sql](/Users/udayhegde/GoProjects/structlens/examples/simple.sql)
-- [examples/nested.sql](/Users/udayhegde/GoProjects/structlens/examples/nested.sql)
-- [examples/complex.sql](/Users/udayhegde/GoProjects/structlens/examples/complex.sql)
+- Type conflicts resolve to `TEXT`; missing fields are marked optional
 
 ## Architecture
 
-The current pipeline is:
-
-```text
-Parser -> Inference -> Mapper -> SQL Generator
-                   -> Tree Printer
+```
+[File picker / CLI input]
+        │
+        ▼
+   Go Engine (sidecar / CLI)
+   ┌──────────────────────────────────────────┐
+   │  Parser → Inference → Mapper → Exporter  │
+   └──────────────────────────────────────────┘
+        │
+        ▼
+   Tauri IPC  ──►  React UI
+                   ├── Schema Tree View
+                   ├── SQL Viewer
+                   └── Records View
 ```
 
-Main packages:
+Main Go packages:
 
-- `internal/parser`
-- `internal/inference`
-- `internal/mapper`
-- `internal/export`
-- `internal/view`
-- `cmd/structlens`
+| Package | Responsibility |
+|---|---|
+| `internal/parser` | Streaming JSON / XML parsing |
+| `internal/inference` | Field type and structure inference |
+| `internal/mapper` | Relational table mapping |
+| `internal/export` | SQL generation |
+| `internal/view` | Tree printer |
+| `cmd/structlens` | CLI entry point |
+| `cmd/structlens-engine` | Sidecar entry point (JSON IPC) |
 
 ## Development
 
-Run tests:
+Run all Go tests:
 
 ```bash
 GOCACHE=$(pwd)/.gocache go test ./...
 ```
 
-Run the sample fixture used by CLI tests:
+Validate the engine output directly:
 
 ```bash
 go run ./cmd/structlens examples/order.json
 go run ./cmd/structlens --view tree examples/order.json
 ```
 
-## Limits And Notes
+## Example Files
 
-- Intended to handle files up to 100MB
-- Parsers are streaming-oriented; the tool avoids loading raw input with ad hoc file parsing logic
-- SQL output targets PostgreSQL-style DDL
-- Tree output is for inspection only and does not change inference or mapping behavior
-- Current numeric inference displays `int` in the tree and emits `DOUBLE PRECISION` for numeric SQL columns unless the column is a primary or foreign key
+- [examples/simple.json](examples/simple.json)
+- [examples/nested.json](examples/nested.json)
+- [examples/complex.xml](examples/complex.xml)
+- [examples/books.xml](examples/books.xml)
+
+Expected SQL snapshots:
+
+- [examples/simple.sql](examples/simple.sql)
+- [examples/nested.sql](examples/nested.sql)
+- [examples/complex.sql](examples/complex.sql)
+
+## Supported Inputs
+
+- JSON
+- XML
+
+Not supported yet:
+
+- YAML
+- CSV
+- Schema diff / migrations
 
 ## Roadmap
 
 - Better numeric precision handling (`int` vs `float`)
 - YAML support
 - Schema diff support
-- Desktop UI with Tauri + React
+- Windows / Linux builds

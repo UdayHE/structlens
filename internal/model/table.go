@@ -55,8 +55,13 @@ func (t *Table) EnsurePrimaryKey() {
 	t.AddColumn(t.PrimaryKey, "BIGINT", false)
 }
 
-// AddForeignKey appends a foreign key definition to the table.
+// AddForeignKey appends a foreign key definition to the table (no-op if column already has one).
 func (t *Table) AddForeignKey(column, refTable, refColumn string) {
+	for _, fk := range t.ForeignKeys {
+		if fk.Column == column {
+			return
+		}
+	}
 	t.ForeignKeys = append(t.ForeignKeys, ForeignKey{
 		Column:    column,
 		RefTable:  refTable,

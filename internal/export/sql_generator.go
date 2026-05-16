@@ -48,7 +48,7 @@ func buildCreateTableStatement(table model.Table) (string, error) {
 
 	var b strings.Builder
 	b.WriteString("CREATE TABLE ")
-	b.WriteString(table.Name)
+	b.WriteString(quoteIdent(table.Name))
 	b.WriteString(" (\n")
 	for i, line := range lines {
 		b.WriteString(indent)
@@ -63,20 +63,24 @@ func buildCreateTableStatement(table model.Table) (string, error) {
 	return b.String(), nil
 }
 
+func quoteIdent(name string) string {
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
+}
+
 func formatColumnLine(column model.Column, primaryKey string) string {
 	columnType := normalizeColumnType(column.Type, column.Name == primaryKey)
 	if column.Name == primaryKey {
-		return fmt.Sprintf("%s %s PRIMARY KEY", column.Name, columnType)
+		return fmt.Sprintf("%s %s PRIMARY KEY", quoteIdent(column.Name), columnType)
 	}
-	return fmt.Sprintf("%s %s", column.Name, columnType)
+	return fmt.Sprintf("%s %s", quoteIdent(column.Name), columnType)
 }
 
 func formatForeignKeyLine(foreignKey model.ForeignKey) string {
 	return fmt.Sprintf(
 		"FOREIGN KEY (%s) REFERENCES %s(%s)",
-		foreignKey.Column,
-		foreignKey.RefTable,
-		foreignKey.RefColumn,
+		quoteIdent(foreignKey.Column),
+		quoteIdent(foreignKey.RefTable),
+		quoteIdent(foreignKey.RefColumn),
 	)
 }
 

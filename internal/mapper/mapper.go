@@ -15,6 +15,7 @@ type MapperConfig struct {
 
 type mappingContext struct {
 	tablesByPath map[string]*model.Table
+	tablesByName map[string]*model.Table
 	order        []*model.Table
 }
 
@@ -40,16 +41,25 @@ func withDefaults(config MapperConfig) MapperConfig {
 }
 
 func newMappingContext() *mappingContext {
-	return &mappingContext{tablesByPath: make(map[string]*model.Table)}
+	return &mappingContext{
+		tablesByPath: make(map[string]*model.Table),
+		tablesByName: make(map[string]*model.Table),
+	}
 }
 
 func ensureTable(ctx *mappingContext, path, tableName string) *model.Table {
 	if table, ok := ctx.tablesByPath[path]; ok {
 		return table
 	}
+	// Reuse a table with the same name (e.g. the same entity type appearing at multiple paths).
+	if table, ok := ctx.tablesByName[tableName]; ok {
+		ctx.tablesByPath[path] = table
+		return table
+	}
 	table := &model.Table{Name: tableName}
 	table.EnsurePrimaryKey()
 	ctx.tablesByPath[path] = table
+	ctx.tablesByName[tableName] = table
 	ctx.order = append(ctx.order, table)
 	return table
 }
@@ -75,7 +85,9 @@ func mapObjectChildren(node *model.SchemaNode, table *model.Table, ctx *mappingC
 			continue
 		}
 		if shouldFlattenObject(child, config) {
-			flattenObjectIntoTable(child, table, config, snakeCase(child.Name))
+			if err := flattenObjectIntoTable(child, table, ctx, config, snakeCase(child.Name)); err != nil {
+				return err
+			}
 			continue
 		}
 		if err := mapNestedObjectAsTable(child, table, ctx, config); err != nil {
@@ -116,17 +128,31 @@ func shouldFlattenObject(node *model.SchemaNode, config MapperConfig) bool {
 	return !(isComplex && isRepeated)
 }
 
-func flattenObjectIntoTable(node *model.SchemaNode, table *model.Table, config MapperConfig, prefix string) {
+func flattenObjectIntoTable(node *model.SchemaNode, table *model.Table, ctx *mappingContext, config MapperConfig, prefix string) error {
 	for _, child := range orderedChildren(node) {
 		columnPrefix := prefix + "_"
 		if isPrimitiveNode(child) {
 			addPrimitiveColumn(table, child, columnPrefix)
 			continue
 		}
-		if !child.IsArray && shouldFlatten(child, config) {
-			flattenObjectIntoTable(child, table, config, columnPrefix+snakeCase(child.Name))
+		if child.IsArray {
+			if err := mapArrayNode(child, table, ctx, config); err != nil {
+				return err
+			}
+			continue
+		}
+		if shouldFlatten(child, config) {
+			if err := flattenObjectIntoTable(child, table, ctx, config, columnPrefix+snakeCase(child.Name)); err != nil {
+				return err
+			}
+			continue
+		}
+		// Too complex to inline — promote to its own table parented by the current table.
+		if err := mapNestedObjectAsTable(child, table, ctx, config); err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
 func orderedChildren(node *model.SchemaNode) []*model.SchemaNode {
@@ -205,20 +231,50 @@ func sqlTypeForNode(nodeType model.NodeType) string {
 }
 
 func snakeCase(value string) string {
+	runes := []rune(value)
 	var b strings.Builder
-	for i, r := range value {
-		if unicode.IsUpper(r) {
-			if i > 0 {
-				b.WriteRune('_')
-			}
-			b.WriteRune(unicode.ToLower(r))
+	for i, r := range runes {
+		if r == '@' {
 			continue
 		}
 		if r == '-' || r == ' ' {
-			b.WriteRune('_')
+			if b.Len() > 0 {
+				b.WriteRune('_')
+			}
+			continue
+		}
+		if unicode.IsUpper(r) {
+			if b.Len() > 0 {
+				prev := prevSignificantRune(runes, i)
+				next := nextSignificantRune(runes, i)
+				if unicode.IsLower(prev) || (unicode.IsUpper(prev) && unicode.IsLower(next)) {
+					b.WriteRune('_')
+				}
+			}
+			b.WriteRune(unicode.ToLower(r))
 			continue
 		}
 		b.WriteRune(unicode.ToLower(r))
 	}
 	return b.String()
+}
+
+func prevSignificantRune(runes []rune, i int) rune {
+	for j := i - 1; j >= 0; j-- {
+		r := runes[j]
+		if r != '@' && r != '-' && r != ' ' {
+			return r
+		}
+	}
+	return 0
+}
+
+func nextSignificantRune(runes []rune, i int) rune {
+	for j := i + 1; j < len(runes); j++ {
+		r := runes[j]
+		if r != '@' && r != '-' && r != ' ' {
+			return r
+		}
+	}
+	return 0
 }
