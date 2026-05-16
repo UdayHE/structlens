@@ -38,8 +38,8 @@ func TestGenerateSQLOrdersTablesByDependencies(t *testing.T) {
 		t.Fatalf("generate sql failed: %v", err)
 	}
 
-	ordersIndex := strings.Index(sql, "CREATE TABLE orders")
-	itemsIndex := strings.Index(sql, "CREATE TABLE items")
+	ordersIndex := strings.Index(sql, `CREATE TABLE "orders"`)
+	itemsIndex := strings.Index(sql, `CREATE TABLE "items"`)
 	if ordersIndex == -1 || itemsIndex == -1 {
 		t.Fatalf("missing expected tables in SQL:\n%s", sql)
 	}
@@ -91,10 +91,10 @@ func TestGenerateSQLFullPipeline(t *testing.T) {
 	}
 
 	expectedSnippets := []string{
-		"CREATE TABLE orders",
-		"CREATE TABLE items",
+		`CREATE TABLE "orders"`,
+		`CREATE TABLE "items"`,
 		"PRIMARY KEY",
-		"FOREIGN KEY (order_id) REFERENCES orders(id)",
+		`FOREIGN KEY ("order_id") REFERENCES "orders"("id")`,
 	}
 	for _, snippet := range expectedSnippets {
 		if !strings.Contains(sql, snippet) {

@@ -35,3 +35,8 @@ go.work.sum
 AGENTS.md
 tasks/
 .gocache/
+.gocache-sidecar/
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/binaries/structlens-engine-*

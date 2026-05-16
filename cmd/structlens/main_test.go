@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,10 +22,10 @@ func TestGenerateSQLFromFileJSON(t *testing.T) {
 	}
 
 	expectedSnippets := []string{
-		"CREATE TABLE orders",
-		"CREATE TABLE items",
+		`CREATE TABLE "orders"`,
+		`CREATE TABLE "items"`,
 		"PRIMARY KEY",
-		"FOREIGN KEY (order_id) REFERENCES orders(id)",
+		`FOREIGN KEY ("order_id") REFERENCES "orders"("id")`,
 	}
 	for _, snippet := range expectedSnippets {
 		if !strings.Contains(sql, snippet) {
@@ -46,7 +47,7 @@ func TestRunWritesSQLToStdout(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("expected empty stderr, got %q", stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "CREATE TABLE orders") {
+	if !strings.Contains(stdout.String(), `CREATE TABLE "orders"`) {
 		t.Fatalf("stdout missing orders table:\n%s", stdout.String())
 	}
 }
@@ -66,6 +67,41 @@ func TestRunWritesTreeToStdout(t *testing.T) {
 	}
 	if strings.Contains(stdout.String(), "\n    └── item") {
 		t.Fatalf("tree output should flatten redundant item node:\n%s", stdout.String())
+	}
+}
+
+func TestRunWritesJSONToStdout(t *testing.T) {
+	inputPath := filepath.Join("..", "..", "examples", "order.json")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	exitCode := run([]string{"--view", "json", inputPath}, &stdout, &stderr)
+
+	if exitCode != 0 {
+		t.Fatalf("exit code = %d, stderr = %s", exitCode, stderr.String())
+	}
+
+	var payload struct {
+		SchemaTree []struct {
+			Name string `json:"name"`
+		} `json:"schemaTree"`
+		SQL      string `json:"sql"`
+		Metadata struct {
+			TotalFields int `json:"totalFields"`
+			TableCount  int `json:"tableCount"`
+		} `json:"metadata"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		t.Fatalf("json output should decode: %v\n%s", err, stdout.String())
+	}
+	if len(payload.SchemaTree) == 0 || payload.SchemaTree[0].Name != "order" {
+		t.Fatalf("unexpected schema tree payload: %+v", payload.SchemaTree)
+	}
+	if !strings.Contains(payload.SQL, `CREATE TABLE "orders"`) {
+		t.Fatalf("json output missing SQL payload:\n%s", payload.SQL)
+	}
+	if payload.Metadata.TotalFields == 0 || payload.Metadata.TableCount == 0 {
+		t.Fatalf("unexpected metadata payload: %+v", payload.Metadata)
 	}
 }
 
@@ -135,7 +171,7 @@ func TestParseArgsRejectsUnsupportedView(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected unsupported view error")
 	}
-	if !strings.Contains(err.Error(), "Supported views: sql, tree") {
+	if !strings.Contains(err.Error(), "Supported views: sql, tree, json") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -221,7 +257,7 @@ func TestGenerateSQLFromFileDeepXML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate sql from deep XML failed: %v", err)
 	}
-	if !strings.Contains(sql, "CREATE TABLE n0s") {
+	if !strings.Contains(sql, `CREATE TABLE "n0s"`) {
 		t.Fatalf("unexpected SQL output for deep XML:\n%s", sql)
 	}
 }

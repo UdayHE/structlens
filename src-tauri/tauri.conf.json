@@ -1,0 +1,50 @@
+{
+  "$schema": "https://schema.tauri.app/config/1",
+  "build": {
+    "beforeDevCommand": "npm run build:sidecar && npm run dev",
+    "beforeBuildCommand": "npm run build:sidecar && npm run build",
+    "devPath": "http://localhost:5173",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "StructLens",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "windows": [
+      {
+        "title": "StructLens",
+        "width": 1440,
+        "height": 960,
+        "minWidth": 1100,
+        "minHeight": 720,
+        "resizable": true
+      }
+    ],
+    "allowlist": {
+      "all": false,
+      "dialog": {
+        "open": true
+      },
+      "shell": {
+        "sidecar": true,
+        "scope": [
+          {
+            "name": "structlens-engine",
+            "sidecar": true
+          }
+        ]
+      }
+    },
+    "security": {
+      "csp": null
+    },
+    "bundle": {
+      "active": true,
+      "identifier": "com.structlens.app",
+      "targets": "all",
+      "icon": [],
+      "externalBin": ["binaries/structlens-engine"]
+    }
+  }
+}

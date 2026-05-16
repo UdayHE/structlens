@@ -3,6 +3,7 @@ package inference
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"structlens/internal/model"
 )
@@ -43,7 +44,32 @@ func mergeNodeIntoSchema(node *model.Node, schema *model.SchemaNode, config Infe
 			return err
 		}
 	}
+	mergeAttributesIntoSchema(node, schema)
 	return nil
+}
+
+func mergeAttributesIntoSchema(node *model.Node, schema *model.SchemaNode) {
+	for attrName, attrValue := range node.Attributes {
+		childName := "@" + attrName
+		childPath := BuildPath(schema.Path, childName, false)
+		child := schema.AddChild(childName, childPath)
+		child.MarkObserved()
+		child.AddType(inferAttrType(attrValue))
+	}
+}
+
+func inferAttrType(value string) model.NodeType {
+	lower := strings.ToLower(strings.TrimSpace(value))
+	if lower == "true" || lower == "false" {
+		return model.NodeTypeBoolean
+	}
+	if _, err := strconv.ParseInt(value, 10, 64); err == nil {
+		return model.NodeTypeNumber
+	}
+	if _, err := strconv.ParseFloat(value, 64); err == nil {
+		return model.NodeTypeNumber
+	}
+	return model.NodeTypeString
 }
 
 func applyNodeMetadata(node *model.Node, schema *model.SchemaNode) {
